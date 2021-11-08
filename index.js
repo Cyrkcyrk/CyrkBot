@@ -1,6 +1,6 @@
-// const functions = require('./functions.js');
 const local = require('./local.js');
 const {Client, Intents} = require('discord.js');
+const util = require('util')
 
 let GLOBAL = {}
 
@@ -27,17 +27,94 @@ GLOBAL.bot.on('ready', () => {
 		
 		_guild.members.fetch("292808250779369482")
 		.then(_cyrk => {
-			console.log(_cyrk.nickname)
-			console.log(GLOBAL.bot.user.id)
-			
 			_guild.members.fetch(GLOBAL.bot.user.id)
 			.then(_bot => {
-				console.log(_bot)
 				_bot.setNickname(_cyrk.nickname);
 			})
 		})
 		
+		// _guild.fetchAuditLogs()
+		// .then(audit => {
+			// audit.entries.forEach(entry => {
+				// if (entry.action == 'MEMBER_ROLE_UPDATE' && entry.target.id == GLOBAL.local.bot.BOTID)
+					// console.log(entry);
+			// })
+		// })
+		// .catch(console.error);
 		
+		
+		let chanArray = []
+		let chanGlobal = {
+			"null" : {
+				type : "GUILD_CATEGORY",
+				parent : null,
+				id : null,
+				name : "null",
+				pos : -1,
+				subChan : []
+			}
+		}
+		var itemsProcessed = 0;
+		_guild.channels.cache.forEach(chan => {
+			itemsProcessed++;
+			let chanObj = {
+				type : chan.type,
+				parent : chan.parentId,
+				id : chan.id,
+				name : chan.name,
+				pos : chan.rawPosition
+			}
+			
+			if (chan.id === "884123995262292029")
+				console.log(chan)
+			
+			if (chan.type === "GUILD_CATEGORY") {
+				// console.log(chanObj)
+				chanObj["subChan"] = [];
+				chanGlobal[chan.id] = chanObj;
+			}
+			else {
+				chanArray.push(chanObj)
+			}
+			
+			if (itemsProcessed === 122) {
+				console.log("--------------")
+				itemsProcessed = 0;
+				chanArray.forEach(chan => {
+					itemsProcessed++;
+					if (chan.parent == null) {
+						chanGlobal["null"]["subChan"].push(chan)
+					}
+					else {
+						chanGlobal[chan.parent]["subChan"].push(chan)
+					}
+					if (itemsProcessed === chanArray.length) {
+						itemsProcessed = 0;
+						chanArray = []
+						Object.keys(chanGlobal).forEach(key => {
+							itemsProcessed++;
+							chanArray.push(chanGlobal[key])
+							chanGlobal[key].subChan.sort((a, b) => {
+								if (a.pos > b.pos)
+									return 1;
+								else
+									return -1;
+							})
+							if (itemsProcessed === Object.keys(chanGlobal).length) {
+								
+								chanArray.sort((a, b) => {
+									if (a.pos > b.pos)
+										return 1;
+									else
+										return -1;
+								})
+								console.log(util.inspect(chanArray, {showHidden: false, depth: null, colors: true}))
+							}
+						})
+					}
+				})
+			}
+		})
 	});
 	
 	// functions.init(GLOBAL);
