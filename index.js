@@ -4,6 +4,11 @@ const util = require('util')
 
 let GLOBAL = {}
 
+
+let {channelTree} = require("./channelTree.js")
+let {messageDelete} = require("./messageDelete.js")
+
+
 GLOBAL.local = local;
 
 GLOBAL.bot = new Client({intents : [
@@ -33,6 +38,11 @@ GLOBAL.bot.on('ready', () => {
 			})
 		})
 		
+		// channelTree(GLOBAL, _guild).then(arr => {
+			// console.log(util.inspect(arr, {showHidden: false, depth: null, colors: true}))
+		// })
+		
+		
 		// _guild.fetchAuditLogs()
 		// .then(audit => {
 			// audit.entries.forEach(entry => {
@@ -43,78 +53,6 @@ GLOBAL.bot.on('ready', () => {
 		// .catch(console.error);
 		
 		
-		let chanArray = []
-		let chanGlobal = {
-			"null" : {
-				type : "GUILD_CATEGORY",
-				parent : null,
-				id : null,
-				name : "null",
-				pos : -1,
-				subChan : []
-			}
-		}
-		var itemsProcessed = 0;
-		_guild.channels.cache.forEach(chan => {
-			itemsProcessed++;
-			let chanObj = {
-				type : chan.type,
-				parent : chan.parentId,
-				id : chan.id,
-				name : chan.name,
-				pos : chan.rawPosition
-			}
-			
-			if (chan.id === "884123995262292029")
-				console.log(chan)
-			
-			if (chan.type === "GUILD_CATEGORY") {
-				// console.log(chanObj)
-				chanObj["subChan"] = [];
-				chanGlobal[chan.id] = chanObj;
-			}
-			else {
-				chanArray.push(chanObj)
-			}
-			
-			if (itemsProcessed === 122) {
-				console.log("--------------")
-				itemsProcessed = 0;
-				chanArray.forEach(chan => {
-					itemsProcessed++;
-					if (chan.parent == null) {
-						chanGlobal["null"]["subChan"].push(chan)
-					}
-					else {
-						chanGlobal[chan.parent]["subChan"].push(chan)
-					}
-					if (itemsProcessed === chanArray.length) {
-						itemsProcessed = 0;
-						chanArray = []
-						Object.keys(chanGlobal).forEach(key => {
-							itemsProcessed++;
-							chanArray.push(chanGlobal[key])
-							chanGlobal[key].subChan.sort((a, b) => {
-								if (a.pos > b.pos)
-									return 1;
-								else
-									return -1;
-							})
-							if (itemsProcessed === Object.keys(chanGlobal).length) {
-								
-								chanArray.sort((a, b) => {
-									if (a.pos > b.pos)
-										return 1;
-									else
-										return -1;
-								})
-								console.log(util.inspect(chanArray, {showHidden: false, depth: null, colors: true}))
-							}
-						})
-					}
-				})
-			}
-		})
 	});
 	
 	// functions.init(GLOBAL);
@@ -149,68 +87,25 @@ GLOBAL.bot.on('ready', () => {
 			}
 			case 'delete': {
 				if (message.author.id == "292808250779369482") {
-					message.delete().catch(e => {console.log("Couldn't delete ordering message")});
-					console.log(args);
-					if (args.length == 1) {
-						message.channel.messages.fetch(args[0]).then(msg => {
-							if (msg) {
-								msg.delete()
-								.then(_ => {
-									console.log("Message deleted");
-								}).catch(e => {
-									console.log("Error: message fetched but error while deleting.")
-									console.log(e)
-								})
-							}
-						}).catch(e => {message.reply("Error: couldn't fetch message : `"+ args[0] +"`")});;
-					}
-					else if (args.length == 2) {
-						
-						GLOBAL.guild.channels.fetch(args[0])
-						.then(_channel => {
-							_channel.messages.fetch(args[1])
-							.then(_msg => {
-								if (_msg) {
-									_msg.delete()
-									.then(_ => {
-										console.log("Message deleted");
-										if (message.channel.id != args[0]) {
-											message.reply("Message deleted");
-										}
-									}).catch(e => {
-										console.log("Error: message fetched but error while deleting.")
-										console.log(e)
-									})
-								}
-							}).catch(e => {message.reply("Error: couldn't fetch message: `"+ args[1] +"`")});
-						}).catch(e => {message.reply("Error: couldn't fetch channel: `"+ args[0] +"`")});
-					}
-					else if (args.length == 3) {
-						GLOBAL.bot.guilds.fetch(args[0])
-						.then(_guild => {
-							_guild.channels.fetch(args[1])
-							.then(_channel => {
-								_channel.messages.fetch(args[2])
-								.then(_msg => {
-									if (_msg) {
-										_msg.delete()
-										.then(_ => {
-											console.log("Message deleted");
-											if (message.channel.id != args[1]) {
-												message.reply("Message deleted");
-											}
-										}).catch(e => {
-											console.log("Error: message fetched but error while deleting.")
-											console.log(e)
-										})
-									}
-								}).catch(e => {message.reply("Error: couldn't fetch message: `"+ args[2] +"`")});
-							}).catch(e => {message.reply("Error: couldn't fetch channel: `"+ args[1] +"`")});
-						}).catch(e => {message.reply("Error: couldn't fetch guild: `"+ args[0] +"`")});
-					}
-					else {
-						message.reply("Error: too few / many arguments: `"+ GLOBAL.local.prefix +"delete {guildID} {channelID} [messageID]`");
-					}
+					messageDelete(GLOBAL, message)
+					.then(res => {
+						console.log(res)
+						message.delete().catch(e => {
+							print("Couldn't delete ordering message")
+						});
+					})
+					.catch(console.log)
+				}
+				break;
+			}
+			case 'say': {
+				if (message.author.id == "292808250779369482")
+				{
+					let message_trim = message.content.substring((GLOBAL.local.prefix + 'say ').length);
+					message.delete()
+					.then(_ => {
+						message.channel.send(message_trim)
+					});
 				}
 				break;
 			}
