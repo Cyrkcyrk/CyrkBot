@@ -7,6 +7,7 @@ let GLOBAL = {}
 
 let {channelTree} = require("./channelTree.js")
 let {messageDelete} = require("./messageDelete.js")
+let {messageSend} = require("./messageSend.js")
 
 
 GLOBAL.local = local;
@@ -90,9 +91,9 @@ GLOBAL.bot.on('ready', () => {
 					messageDelete(GLOBAL, message)
 					.then(res => {
 						console.log(res)
-						message.delete().catch(e => {
-							print("Couldn't delete ordering message")
-						});
+						// message.delete().catch(e => {
+							// print("Couldn't delete ordering message")
+						// });
 					})
 					.catch(console.log)
 				}
@@ -109,6 +110,43 @@ GLOBAL.bot.on('ready', () => {
 				}
 				break;
 			}
+			case 'send' : {
+				if (message.author.id == "292808250779369482") {
+					let messageTrim = message.content.substring((GLOBAL.local.prefix + 'send ').length);
+					message.delete();
+					messageSend(GLOBAL, message, message.channelId, messageTrim)
+					.then(res => {
+						console.log(res);
+					})
+					.catch(e => {
+						console.log(e);
+						// message.reply("Error")
+					})
+				}
+				break;
+			}
+			case 'ssend' : {
+				if (message.author.id == "292808250779369482") {
+					
+					let channelID = args[0];
+					let messageTrim = message.content.substring((GLOBAL.local.prefix + 'send ' + args[0] + " ").length);
+					
+					messageSend(GLOBAL, message, channelID, messageTrim)
+					.then(res => {
+						console.log(res);
+						if (message.channelId != channelID)
+							message.reply("Message sent in `"+ channelID +"`:\n>>> "+ messageTrim)
+						else
+							message.delete();
+					})
+					.catch(e => {
+						console.log(e);
+						// message.reply("Error")
+					})
+				}
+				break;
+			}
+			
 		}
 	}
 })

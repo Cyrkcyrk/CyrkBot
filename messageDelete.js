@@ -26,7 +26,7 @@ exports.messageDelete = (GLOBAL, message) => {
 			});
 		}
 		else if (args.length == 2) {
-			GLOBAL.guild.channels.fetch(args[0])
+			GLOBAL.bot.channels.fetch(args[0])
 			.then(_channel => {
 				_channel.messages.fetch(args[1])
 				.then(_msg => {
@@ -60,6 +60,7 @@ exports.messageDelete = (GLOBAL, message) => {
 				})
 			});
 		}
+		/*
 		else if (args.length == 3) {
 			GLOBAL.bot.guilds.fetch(args[0])
 			.then(_guild => {
@@ -82,6 +83,7 @@ exports.messageDelete = (GLOBAL, message) => {
 							})
 						}
 					}).catch(e => {
+						console.log(e);
 						message.reply("Error: couldn't fetch message: `"+ args[2] +"`")
 						.then(_ => {
 							reject("Error: couldn't fetch message: `"+ args[2] +"`")
@@ -89,6 +91,7 @@ exports.messageDelete = (GLOBAL, message) => {
 						})
 					});
 				}).catch(e => {
+					console.log(e);
 					message.reply("Error: couldn't fetch channel: `"+ args[1] +"`")
 					.then(_ => {
 						reject("Error: couldn't fetch channel: `"+ args[1] +"`")
@@ -96,6 +99,7 @@ exports.messageDelete = (GLOBAL, message) => {
 					})
 				});
 			}).catch(e => {
+				console.log(e);
 				message.reply("Error: couldn't fetch guild: `"+ args[0] +"`")
 				.then(_ => {
 					reject("Error: couldn't fetch guild: `"+ args[0] +"`")
@@ -103,10 +107,11 @@ exports.messageDelete = (GLOBAL, message) => {
 				})
 			});
 		}
+		*/
 		else {
-			message.reply("Error: too few / many arguments: `"+ GLOBAL.local.prefix +"delete {guildID} {channelID} [messageID]`")
+			message.reply("Error: too few / many arguments: `"+ GLOBAL.local.prefix +"delete {channelID} [messageID]`")
 			.then(_ => {
-				reject("Error: too few / many arguments: `"+ GLOBAL.local.prefix +"delete {guildID} {channelID} [messageID]`");
+				reject("Error: too few / many arguments: `"+ GLOBAL.local.prefix +"delete {channelID} [messageID]`");
 				return;
 			})
 		}
