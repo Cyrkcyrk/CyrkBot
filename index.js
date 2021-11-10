@@ -492,35 +492,38 @@ let archiveMessage = (GLOBAL, msg, chanArchive) => {
 		//console.log(e)
 	}
 	
-	return new Promise( (resolve, reject) => {
+	return new Promise((resolve, reject) => {
 		new Promise(resolve1 => {
 			if (msg.reference == null) {
-				resolve(null)
+				resolve1(null)
 			}
 			else {
-				GLOBAL.con.query("SELECT * FROM `SaveBotMessages` WHERE `messageId` = "+ GLOBAL.con.escape(msg.id) +";", (err, res, fields) => {
+				GLOBAL.con.query("SELECT * FROM `SaveBotMessages` WHERE `messageId` = "+ GLOBAL.con.escape(msg.reference.messageId) +";", (err, res, fields) => {
 					if (err || typeof(res[0]) == "undefined") {
-						resolve(null)
+						resolve1(null)
+						
 					}
 					else {
-						resolve({
+						resolve1({
 							messageReference : res[0].saveId,
 							failIfNotExists : false
 						})
 					}
 				})
 			}
-		})
-		.then(replyOptions => {
+		}).then(replyOptions => {
 			if(msg.author.bot) {
-				chanArchive.send({
+				let messageOption = {
 					content: "`BOT: "+ msg.author.username +"`\n" + msg.content,
 					embeds : msg.embeds,
 					// attachments : msg.attachments,
 					stickers : msg.stickers,
-					files : msg.attachments,
-					reply : replyOptions
-				})
+					files : msg.attachments
+				}
+				if(replyOptions)
+					messageOption.reply = replyOptions
+				
+				chanArchive.send(messageOption)
 				.then(msgSent => {
 					localLog("Message envoye")
 					GLOBAL.con.query("INSERT INTO `SaveBotMessages`(`messageId`, `channelId`, `saveId`) VALUES ("+ GLOBAL.con.escape(msg.id) +", "+  GLOBAL.con.escape(msg.channelId) +", "+  GLOBAL.con.escape(msgSent.id) +")", (err) => {
@@ -556,13 +559,17 @@ let archiveMessage = (GLOBAL, msg, chanArchive) => {
 					else if (msg.editedAt != null)
 						embed.setColor([100, 100, 255])
 					
-					chanArchive.send({
+					
+					let messageOption = {
 						embeds : [embed],
 						// attachments : msg.attachments,
 						stickers : msg.stickers,
-						files : msg.attachments,
-						reply : replyOptions
-					})
+						files : msg.attachments
+					}
+					if(replyOptions)
+						messageOption.reply = replyOptions
+					
+					chanArchive.send(messageOption)
 					.then(msgSent => {
 						localLog("Message envoye")
 						GLOBAL.con.query("UPDATE `SaveBotChannels` SET `lastRegisteredMessageId`="+ GLOBAL.con.escape(msg.id) +" WHERE `originId`="+ msg.channelId +";", (err) => {
