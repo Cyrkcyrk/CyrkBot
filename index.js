@@ -9,6 +9,11 @@ let {channelTree} = require("./channelTree.js")
 let {messageDelete} = require("./messageDelete.js")
 let {messageSend} = require("./messageSend.js")
 
+let archivedChannel = [
+	""
+	,""
+]
+
 var mysql = require('mysql');
 GLOBAL.con = mysql.createConnection({
 	host: GLOBAL.local.db.HOST,
@@ -219,7 +224,7 @@ GLOBAL.bot.on('ready', () => {
 })
 .on('messageCreate', (message) =>{
 	
-	if (message.guildId === GLOBAL.local.bot.GUILDID) {
+	if (message.guildId === GLOBAL.local.bot.GUILDID && archivedChannel.indexOf(message.channelId) > -1) {
 		getArchiveChannelId(GLOBAL, message.channelId)
 		.then(channelId => {
 			GLOBAL.bot.channels.fetch(channelId).then(chanArchive => {
@@ -576,7 +581,6 @@ let getArchiveChannelId = (GLOBAL, channelId) => {
 			if (typeof(res[0]) != "undefined")
 			{
 				localLog("Channel trouve")
-				// archiveMessage(message, res[0].destId);
 				resolve1(res[0].destId)
 			}
 			else {
@@ -690,11 +694,8 @@ let fetchFirstMessageChannel = (GLOBAL, channelId) => {
 						})
 					})
 					.then(firstMessage => {
-						// console.log(msgs.size + " - " + limit)
 						if (msgs.size != limit) {
 							resolve1(firstMessage)
-							// console.log(firstMessage);
-							// console.log("https://discord.com/channels/"+ firstMessage.guildId +"/"+ firstMessage.channelId +"/"+ firstMessage.id)
 						}
 						else {
 							fetchFirstMessage(firstMessage.id)
