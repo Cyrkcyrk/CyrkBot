@@ -62,6 +62,14 @@ GLOBAL.bot.on('ready', () => {
 		})
 		
 		// channelTree(GLOBAL, _guild).then(arr => {
+			// console.log("Tree done")
+			// console.log(typeof(arr))
+			// Object.keys(arr).forEach(cat => {
+				// arr[cat].subChan.forEach(chan => {
+					// if (chan.type == 'GUILD_TEXT')
+						// console.log(chan.id)
+				// })
+			// })
 			// console.log(util.inspect(arr, {showHidden: false, depth: null, colors: true}))
 		// })
 		
@@ -224,7 +232,7 @@ GLOBAL.bot.on('ready', () => {
 })
 .on('messageCreate', (message) =>{
 	
-	if (message.guildId === GLOBAL.local.bot.GUILDID && archivedChannel.indexOf(message.channelId) > -1) {
+	if (message.guildId === GLOBAL.local.bot.GUILDID) {
 		getArchiveChannelId(GLOBAL, message.channelId)
 		.then(channelId => {
 			GLOBAL.bot.channels.fetch(channelId).then(chanArchive => {
@@ -398,11 +406,27 @@ GLOBAL.bot.on('ready', () => {
 				}).catch(console.log)
 				break;
 			}
+			case 'channelinfo': {
+				GLOBAL.bot.channels.fetch(args[0]).then(chan => {
+					console.log(chan);
+				}).catch(console.log)
+				break;
+			}
+			case 'guildinfo': {
+				GLOBAL.bot.guilds.fetch(args[0]).then(guild => {
+					console.log(guild);
+				}).catch(console.log)
+				break;
+			}
+			
 			case 'firstmessage': {
 				if (message.author.id == "292808250779369482") {
 					fetchFirstMessageChannel(args[0])
 					.then(msg => {
-						console.log(msg.id)
+						if (msg == null)
+							console.log("Päs de premier message")
+						else
+							console.log(msg.id)
 					})
 					.catch(e => {
 						console.log(e);
@@ -412,77 +436,143 @@ GLOBAL.bot.on('ready', () => {
 			}
 			
 			case 'archive' : {
-				let limit = 20;
-				let archiveFrom = (messageId, chanSrc, chanArchive) => {
-					chanSrc.messages.fetch({
-						limit : limit,
-						after : messageId
-					}).then(msgs => {
-						return new Promise((resolve, reject) => {
-							let iterate = (id) => {
-								archiveMessage(GLOBAL, msgs.at(id), chanArchive)
-								.then(_ => {
-									if (id == 1)
-										resolve();
-									else 
-										iterate(id-1);
-								}).catch(e => {
-									console.log("Error while archiving message " + msgs.at(id).id)
-									console.log(e)
-								})
-							}
-							iterate(msgs.size - 1);
-						}).then(_ => {
-							if (msgs.size == limit)
-								archiveFrom(msgs.at(1).id, chanSrc, chanArchive)
-							else {
-								archiveMessage(GLOBAL, msgs.at(0), chanArchive)
-							}
-						})
-					})
-				}
-				
 				if (message.author.id == "292808250779369482") {
-					GLOBAL.bot.channels.fetch(args[0]).then(chanSrc => {
-						console.log("ChanSrc fetch")
-						getArchiveChannelId(GLOBAL, args[0]).then(chanArchiveId => {
-							console.log("Archive channel ID: " + chanArchiveId)
-							GLOBAL.bot.channels.fetch(chanArchiveId).then(chanArchive => {
-								console.log("Archive channel fetch")
-								GLOBAL.con.query("SELECT * FROM `SaveBotChannels` WHERE `originId` = "+ GLOBAL.con.escape(chanSrc.id) +";", (err, res, fields) => {
-									if (err)
-										console.log(err)
-									else {
-										
-										console.log("DB query executee")
-										
-										if (typeof(res[0]) == "undefined") {
-											console.log("ERREUR : channel not found in DB")
-										}
-										else if (res[0].lastRegisteredMessageId == 0) {
-											fetchFirstMessageChannel(GLOBAL, chanSrc.id).then(msg => {
-												archiveMessage(GLOBAL, msg, chanArchive)
-												.then(_ => {
-													archiveFrom(msg.id, chanSrc, chanArchive)
-												}).catch(console.log)
-											})
-										}
-										else {
-											archiveFrom(res[0].lastRegisteredMessageId, chanSrc, chanArchive)
-										}
+					
+					let limit = 90;
+					let archiveFrom = (messageId, chanSrc, chanArchive) => {
+						return new Promise((resolve1, reject1) => {
+							chanSrc.messages.fetch({
+								limit : limit,
+								after : messageId
+							}).then(msgs => {
+								return new Promise((resolve, reject) => {
+									let iterate = (id) => {
+										console.log(id);
+										archiveMessage(GLOBAL, msgs.at(id), chanArchive)
+										.then(_ => {
+											if (id == 1)
+												resolve();
+											else 
+												iterate(id-1);
+										}).catch(e => {
+											console.log("Error while archiving message ")
+											console.log("iterateur " + id)
+											if (id >= 0 && id < msgs.size)
+												console.log("MsgId " + msgs.at(id).id)
+											console.log(e)
+											reject(e)
+										})
 									}
-								})
+									if (msgs.size == 0) {
+										console.log("No message in channel")
+										resolve()
+									}
+									else
+										iterate(msgs.size - 1);
+								}).then(_ => {
+									if (msgs.size == limit) {
+										archiveFrom(msgs.at(1).id, chanSrc, chanArchive)
+										.then(resolve1).catch(reject1)
+									}
+									else if (msgs.size != 0) {
+										archiveMessage(GLOBAL, msgs.at(0), chanArchive)
+										.then(resolve1).catch(reject1)
+									}
+									else
+										resolve1();
+								}).catch(reject1)
 							})
-						}).catch(e => {
-							console.log("ERror while searching for archive channel")
-							console.log(e)
 						})
-					})
+					}
+					
+					
+					let archiveChannel = (paramChanID) => {
+						return new Promise( (resolve, reject) => {
+							GLOBAL.bot.channels.fetch(paramChanID).then(chanSrc => {
+								console.log("ChanSrc fetch")
+								getArchiveChannelId(GLOBAL, paramChanID).then(chanArchiveId => {
+									console.log("Archive channel ID: " + chanArchiveId)
+									GLOBAL.bot.channels.fetch(chanArchiveId).then(chanArchive => {
+										console.log("Archive channel fetch")
+										GLOBAL.con.query("SELECT * FROM `SaveBotChannels` WHERE `originId` = "+ GLOBAL.con.escape(chanSrc.id) +";", (err, res, fields) => {
+											if (err)
+												console.log(err)
+											else {
+												console.log("DB query executee")
+												if (typeof(res[0]) == "undefined") {
+													console.log("ERREUR : channel not found in DB")
+													reject("channel not found in DB")
+												}
+												else if (res[0].lastRegisteredMessageId == 0) {
+													console.log("Fetching first message")
+													fetchFirstMessageChannel(GLOBAL, chanSrc.id).then(msg => {
+														if (msg) {
+															archiveMessage(GLOBAL, msg, chanArchive)
+															.then(_ => {
+																archiveFrom(msg.id, chanSrc, chanArchive)
+																.then(resolve).catch(e => {
+																	console.log("Error while archiving "+ chanSrc.name)
+																	console.log(e)
+																	resolve();
+																}).catch(e => {
+																	console.log("Error while archiving channel")
+																	reject(e)
+																})
+															}).catch(e => {
+																console.log("Can't archive first messages")
+																reject(e)
+															})
+														}
+														else{
+															console.log("First message is null")
+															resolve();
+														}
+													}).catch(e => {
+														console.log("Can't fetch first message")
+														console.log(e);
+														reject(e)
+													})
+												}
+												else {
+													archiveFrom(res[0].lastRegisteredMessageId, chanSrc, chanArchive)
+													.then(resolve).catch(e => {
+														console.log("Error while archiveFrom res[0]")
+														console.log(e)
+														reject(e)
+													})
+												}
+											}
+										})
+									})
+								}).catch(e => {
+									console.log("ERror while searching for archive channel")
+									reject(e)
+								})
+							}).catch(e => {
+								console.log("Can't fetch the channel `"+ paramChanID +"`")
+								reject(e)
+							})
+						})
+					}
+					
+					let boucle = (iterateur) => {
+						// console.log(iterateur, args[iterateur])
+						archiveChannel(args[iterateur])
+						.then(_ => {
+							console.log("Archive over")
+							if (iterateur <= args.length)
+								boucle(iterateur+1)
+						}).catch(e => {
+							console.log("Archive failure")
+							console.log(e)
+							if (iterateur <= args.length)
+								boucle(iterateur+1)
+						})
+					}
+					boucle(0);
 				}
 				break;
 			}
-			
-			
 		}
 	}
 })
@@ -493,6 +583,7 @@ let archiveMessage = (GLOBAL, msg, chanArchive) => {
 	}
 	
 	return new Promise( (resolve, reject) => {
+		console.log(msg)
 		if(msg.author.bot) {
 			chanArchive.send({
 				content: "`BOT: "+ msg.author.username +"`\n" + msg.content,
@@ -529,7 +620,7 @@ let archiveMessage = (GLOBAL, msg, chanArchive) => {
 					.addField("Posté à `"+ msg.createdTimestamp +"` ("+ mtn + ")", msg.content? msg.content.substr(0, 1023) : "no content")
 				
 				if (msg.content.length > 1023)
-					embed.addField("Suite message:", msg.content.substr(1024))
+					embed.addField("Suite message:", msg.content.substr(1024, 2047))
 					
 				if (msg.deleted)
 					embed.setColor([255, 100, 100])
@@ -677,21 +768,33 @@ let fetchFirstMessageChannel = (GLOBAL, channelId) => {
 		GLOBAL.bot.channels.fetch(channelId).then(chan => {
 			let limit = 100;
 			let fetchFirstMessage = (beforeMessageID) => {
+				console.log(beforeMessageID)
 				chan.messages.fetch({
 					limit : limit,
 					before : beforeMessageID
 				}).then(msgs => {
 					new Promise(resolve => {
-						i = 0;
-						firstMessage = msgs.first();
-						msgs.forEach(msg => {
-							i++;
-							if (msg.createdTimestamp < firstMessage.createdTimestamp)
-								firstMessage = msg;
-							
-							if (i === msgs.size)
-								resolve(firstMessage)
-						})
+						if (msgs.size == 0) {
+							chan.messages.fetch(beforeMessageID).then(msg => {
+								resolve(msg)
+							}).catch(e => {
+								console.log("Error while fetching first message")
+								console.log(e)
+								reject1(e)
+							})
+						}
+						else {
+							i = 0;
+							firstMessage = msgs.first();
+							msgs.forEach(msg => {
+								i++;
+								if (msg.createdTimestamp < firstMessage.createdTimestamp)
+									firstMessage = msg;
+								
+								if (i === msgs.size)
+									resolve(firstMessage)
+							})
+						}
 					})
 					.then(firstMessage => {
 						if (msgs.size != limit) {
@@ -706,7 +809,10 @@ let fetchFirstMessageChannel = (GLOBAL, channelId) => {
 					reject1(e);
 				})
 			}
-			fetchFirstMessage(chan.lastMessageId);
+			if (chan.lastMessageId == null)
+				resolve1(null)
+			else
+				fetchFirstMessage(chan.lastMessageId);
 		})
 	})
 }
