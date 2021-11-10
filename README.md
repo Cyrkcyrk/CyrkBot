@@ -33,3 +33,8 @@ exports.db = {
 
 exports.prefix = "?";                                                       //Prefixe de commande du bot
 ```
+Installer avec
+`npm install`
+
+Executer avec
+`node  CyrkBot.js` ou `npm run start`
