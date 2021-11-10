@@ -108,24 +108,28 @@ GLOBAL.bot.on('ready', () => {
 				res = res[0];
 				GLOBAL.bot.channels.fetch(res.destId).then(chan => {
 					chan.messages.fetch(res.saveId).then(msg => {
-						
 						new Promise( (resolve) => {
-							let i = 0;
-							let embedArray = []
-							msg.embeds.forEach(emb => {
-								i++;
-								embedArray.push(emb);
-								if (i == msg.embeds.length) {
-									resolve(embedArray)
-								}
-							})
+							if(msg.embeds.length == 0) {
+								resolve([])
+							}
+							else {
+								let i = 0;
+								let embedArray = []
+								msg.embeds.forEach(emb => {
+									i++;
+									embedArray.push(emb);
+									if (i == msg.embeds.length) {
+										resolve(embedArray)
+									}
+								})
+							}
 						})
 						.then(embedArray => {
 							let embed = embedArray[embedArray.length - 1]
 							
 							let mtn = new Date();
 							
-							if (embed.fields.length == 24 || embed.fields.length == 0) {
+							if (embedArray.length == 0 || embed.fields.length == 24 || embed.fields.length == 0) {
 								embed = new MessageEmbed()
 								.setTimestamp(Date.now())
 								.setDescription("Embed n°" + embedArray.length)
@@ -171,8 +175,10 @@ GLOBAL.bot.on('ready', () => {
 							chanOrigin.messages.fetch(res.messageId).then(msgOrigin => {
 								
 								if(msgOrigin.author.bot) {
+									chanArchive.send(messageOptions)
 									msg.edit({
-										content: "`BOT: "+ msgOrigin.author.username +" (updated on "+ new Date() +"`\n" + msgOrigin.content,
+										content: (msgOrigin.deleted ? "(deleted) " : "") + (msgOrigin.editedTimestamp ? "(edited) " : "") + "> BOT: "+ msgOrigin.author.username +", MessageId: `"+ msgOrigin.id +"` (updated on `"+ new Date() +"`)\n" + msgOrigin.content,
+										embeds : msg.embeds,
 										embeds : msgOrigin.embeds,
 										// attachments : msg.attachments,
 										stickers : msgOrigin.stickers,
@@ -232,7 +238,7 @@ GLOBAL.bot.on('ready', () => {
 })
 .on('messageCreate', (message) =>{
 	
-	if (message.guildId === GLOBAL.local.bot.GUILDID) {
+	if (message.guildId === GLOBAL.local.bot.GUILDID || message.channelId === "908064471560380466") {
 		getArchiveChannelId(GLOBAL, message.channelId)
 		.then(channelId => {
 			GLOBAL.bot.channels.fetch(channelId).then(chanArchive => {
@@ -326,6 +332,60 @@ GLOBAL.bot.on('ready', () => {
 		*/
 	}
 	
+	if (message.guildId === GLOBAL.local.bot.GUILDSAVEID && message.author.id != GLOBAL.local.bot.BOTID) {
+		GLOBAL.con.query("SELECT * FROM `SaveBotChannels` WHERE `destId`="+ GLOBAL.con.escape(message.channelId) +";", (err, res, fields) => {
+			if (err) {
+				console.log(err)
+			}
+			else if (typeof(res[0]) == "undefined"){
+				console.log("Channel not in DB")
+			}
+			else {
+				GLOBAL.bot.channels.fetch(res[0].originId).then(chan => {
+					new Promise((resolve, reject) => {
+						if (message.reference == null) {
+							resolve(null)
+						}
+						else {
+							GLOBAL.con.query("SELECT * FROM `SaveBotMessages` WHERE `saveId`="+ GLOBAL.con.escape(message.reference.messageId) +";", (err, res2) => {
+								if (err) {
+									console.log("Error while getting data on DB")
+									reject(err)
+								}
+								if (typeof(res2[0]) == "undefined") {
+									resolve(null)
+								}
+								else {
+									resolve(res2[0].messageId)
+								}
+							})
+						}
+					}).then(replyId => {
+						let messageOptions = {
+							content : message.content
+						}
+						
+						if (replyId) {
+							messageOptions.reply = {
+								messageReference : replyId,
+								failIfNotExists : false
+							}
+						}
+						console.log("MESSAGE OPTIONS")
+						console.log(messageOptions)
+						chan.send(messageOptions).then(msg => {
+							message.react('👍')
+						});
+					}).catch(e => {
+						console.log("Error while getting replyOptions")
+						console.log(e)
+						message.reply("Error while getting replyOptions");
+					})
+				})
+			}
+		})
+	}
+	
 	if (message.content.startsWith("???ping")) {
 		message.author.send("Emergency pong!");
 	}
@@ -333,7 +393,7 @@ GLOBAL.bot.on('ready', () => {
 		const args = message.content.trim().split(/ +/g);
 		const command = args.shift().toLowerCase().slice(GLOBAL.local.prefix.length);;
 		
-		console.log(command);
+		// console.log(command);
 		switch (command) {
 			case 'ping': {
 				message.reply("Pong !");
@@ -418,7 +478,12 @@ GLOBAL.bot.on('ready', () => {
 				}).catch(console.log)
 				break;
 			}
-			
+			case 'userinfo': {
+				GLOBAL.bot.users.fetch(args[0]).then(usr => {
+					console.log(usr)
+				}).catch(console.log)
+				break;
+			}
 			case 'firstmessage': {
 				if (message.author.id == "292808250779369482") {
 					fetchFirstMessageChannel(args[0])
@@ -487,24 +552,30 @@ GLOBAL.bot.on('ready', () => {
 					
 					
 					let archiveChannel = (paramChanID) => {
+						let localLog = (m) => {
+							console.log(m)
+						}
+						
 						return new Promise( (resolve, reject) => {
 							GLOBAL.bot.channels.fetch(paramChanID).then(chanSrc => {
-								console.log("ChanSrc fetch")
+								localLog("ChanSrc fetch")
 								getArchiveChannelId(GLOBAL, paramChanID).then(chanArchiveId => {
-									console.log("Archive channel ID: " + chanArchiveId)
+									localLog("Archive channel ID: " + chanArchiveId)
 									GLOBAL.bot.channels.fetch(chanArchiveId).then(chanArchive => {
-										console.log("Archive channel fetch")
+										localLog("Archive channel fetch")
 										GLOBAL.con.query("SELECT * FROM `SaveBotChannels` WHERE `originId` = "+ GLOBAL.con.escape(chanSrc.id) +";", (err, res, fields) => {
-											if (err)
-												console.log(err)
+											if (err){
+												console.log("Error while getting Channels infos from DB")
+												reject(e)
+											}
 											else {
-												console.log("DB query executee")
+												localLog("DB query executee")
 												if (typeof(res[0]) == "undefined") {
 													console.log("ERREUR : channel not found in DB")
 													reject("channel not found in DB")
 												}
 												else if (res[0].lastRegisteredMessageId == 0) {
-													console.log("Fetching first message")
+													localLog("Fetching first message")
 													fetchFirstMessageChannel(GLOBAL, chanSrc.id).then(msg => {
 														if (msg) {
 															archiveMessage(GLOBAL, msg, chanArchive)
@@ -512,7 +583,6 @@ GLOBAL.bot.on('ready', () => {
 																archiveFrom(msg.id, chanSrc, chanArchive)
 																.then(resolve).catch(e => {
 																	console.log("Error while archiving "+ chanSrc.name)
-																	console.log(e)
 																	resolve();
 																}).catch(e => {
 																	console.log("Error while archiving channel")
@@ -529,7 +599,6 @@ GLOBAL.bot.on('ready', () => {
 														}
 													}).catch(e => {
 														console.log("Can't fetch first message")
-														console.log(e);
 														reject(e)
 													})
 												}
@@ -537,7 +606,6 @@ GLOBAL.bot.on('ready', () => {
 													archiveFrom(res[0].lastRegisteredMessageId, chanSrc, chanArchive)
 													.then(resolve).catch(e => {
 														console.log("Error while archiveFrom res[0]")
-														console.log(e)
 														reject(e)
 													})
 												}
@@ -579,81 +647,127 @@ GLOBAL.bot.on('ready', () => {
 
 let archiveMessage = (GLOBAL, msg, chanArchive) => {
 	let localLog = (e) => {
-		//console.log(e)
+		console.log(e)
 	}
 	
 	return new Promise( (resolve, reject) => {
-		console.log(msg)
-		if(msg.author.bot) {
-			chanArchive.send({
-				content: "`BOT: "+ msg.author.username +"`\n" + msg.content,
-				embeds : msg.embeds,
-				// attachments : msg.attachments,
-				stickers : msg.stickers,
-				files : msg.attachments
-			})
-			.then(msgSent => {
-				localLog("Message envoye")
-				GLOBAL.con.query("INSERT INTO `SaveBotMessages`(`messageId`, `channelId`, `saveId`) VALUES ("+ GLOBAL.con.escape(msg.id) +", "+  GLOBAL.con.escape(msg.channelId) +", "+  GLOBAL.con.escape(msgSent.id) +")", (err) => {
-					if (err)
-						reject(err)
-					else
-						resolve("Success")
+		
+		new Promise((resolveRep) => {
+			localLog("Est ce que y'a une reply? ")
+			if (msg.reference == null) {
+				localLog("Pas de references")
+				resolveRep(null)
+			}
+			else {
+				GLOBAL.con.query("SELECT * FROM `SaveBotMessages` WHERE `messageId`="+ GLOBAL.con.escape(msg.reference.messageId) +";", (err, res) => {
+					if (err) {
+						console.log("Error while getting data on DB")
+						console.log(err)
+						resolveRep(null)
+					}
+					else if (typeof(res[0]) == "undefined") {
+						localLog("Pas trouvé dans la DB")
+						resolveRep(null)
+					}
+					else {
+						localLog("Reply trouvé")
+						localLog(res[0])
+						resolveRep(res[0].saveId)
+					}
 				})
-			}).catch(reject)
-		}
-		else {
-			new Promise((resolve, reject) => {
-				GLOBAL.guild.members.fetch(msg.author.id).then(member => {
-					resolve(member);
-				}).catch(e => {
-					resolve(null)
-				})
-			}).then(member => {
-				let mtn = new Date();
-				let embed = new MessageEmbed()
-					.setAuthor((member && member.nickname ? member.nickname + '(' + member.user.username + ')' : msg.author.username), "https://cdn.discordapp.com/avatars/"+ msg.author.id +"/"+ msg.author.avatar, "https://discord.com/channels/"+ msg.guildId +"/"+ msg.channelId +"/"+ msg.id)
-					.setFooter("last change")
-					.setTimestamp(msg.createdTimestamp)
-					.setDescription("Embed n°0 - Message ID: `"+ msg.id +"`")
-					.setColor([100, 255, 100])
-					.addField("Posté à `"+ msg.createdTimestamp +"` ("+ mtn + ")", msg.content? msg.content.substr(0, 1023) : "no content")
-				
-				if (msg.content.length > 1023)
-					embed.addField("Suite message:", msg.content.substr(1024, 2047))
-					
-				if (msg.deleted)
-					embed.setColor([255, 100, 100])
-				else if (msg.editedAt != null)
-					embed.setColor([100, 100, 255])
-				
-				chanArchive.send({
-					embeds : [embed],
+			}
+		}).then(replyId => {
+			if(msg.author.bot) {
+				let messageOptions = {
+					content: (msg.deleted ? "(deleted) " : "") + (msg.editedTimestamp ? "(edited) " : "") + "> BOT: "+ msg.author.username +", MessageId: `"+ msg.id +"`\n" + msg.content,
+					embeds : msg.embeds,
 					// attachments : msg.attachments,
 					stickers : msg.stickers,
 					files : msg.attachments
-				})
+				}
+				
+				if (replyId) {
+					messageOptions.reply = {
+						messageReference : replyId,
+						failIfNotExists : false
+					}
+				}
+				
+				chanArchive.send(messageOptions)
 				.then(msgSent => {
 					localLog("Message envoye")
-					GLOBAL.con.query("UPDATE `SaveBotChannels` SET `lastRegisteredMessageId`="+ GLOBAL.con.escape(msg.id) +" WHERE `originId`="+ msg.channelId +";", (err) => {
-						if (err){
-							console.log("ERROR: can't lastRegisteredMessageId in DB")
+					GLOBAL.con.query("INSERT INTO `SaveBotMessages`(`messageId`, `channelId`, `saveId`) VALUES ("+ GLOBAL.con.escape(msg.id) +", "+  GLOBAL.con.escape(msg.channelId) +", "+  GLOBAL.con.escape(msgSent.id) +")", (err) => {
+						if (err)
 							reject(err)
-						}
-						else {
-							GLOBAL.con.query("INSERT INTO `SaveBotMessages`(`messageId`, `channelId`, `saveId`) VALUES ("+ GLOBAL.con.escape(msg.id) +", "+  GLOBAL.con.escape(msg.channelId) +", "+  GLOBAL.con.escape(msgSent.id) +")", (err) => {
-								if (err){
-									console.log("ERROR: can't insert new message into SaveBotChannels")
-									reject(err)
-								}
-								else
-									resolve("Success");
-							})
-						}
+						else
+							resolve("Success")
 					})
 				}).catch(reject)
-			}).catch(reject)
-		}
+			}
+			else {
+				new Promise((resolve, reject) => {
+					GLOBAL.guild.members.fetch(msg.author.id).then(member => {
+						resolve(member);
+					}).catch(e => {
+						resolve(null)
+					})
+				}).then(member => {
+					let mtn = new Date();
+					let embed = new MessageEmbed()
+						.setAuthor((member && member.nickname ? member.nickname + '(' + member.user.username + ')' : msg.author.username), "https://cdn.discordapp.com/avatars/"+ msg.author.id +"/"+ msg.author.avatar, "https://discord.com/channels/"+ msg.guildId +"/"+ msg.channelId +"/"+ msg.id)
+						.setFooter("last change")
+						.setTimestamp(msg.createdTimestamp)
+						.setDescription("Embed n°0 - Message ID: `"+ msg.id +"`")
+						.setColor([100, 255, 100])
+						.addField("Posté à `"+ msg.createdTimestamp +"` ("+ mtn + ")", msg.content? msg.content.substr(0, 1023) : "no content")
+					if (msg.content.length > 1023)
+						embed.addField("Suite message:", msg.content.substr(1024, 2047))
+						
+					if (msg.deleted)
+						embed.setColor([255, 100, 100])
+					else if (msg.editedAt != null)
+						embed.setColor([100, 100, 255])
+					
+					let messageOptions = {
+						embeds : [embed],
+						// attachments : msg.attachments,
+						stickers : msg.stickers,
+						files : msg.attachments
+					}
+					
+					if (replyId) {
+						messageOptions.reply = {
+							messageReference : replyId,
+							failIfNotExists : false
+						}
+					}
+					
+					console.log(replyId)
+					console.log(messageOptions)
+					
+					chanArchive.send(messageOptions)
+					.then(msgSent => {
+						localLog("Message envoye")
+						GLOBAL.con.query("UPDATE `SaveBotChannels` SET `lastRegisteredMessageId`="+ GLOBAL.con.escape(msg.id) +" WHERE `originId`="+ msg.channelId +";", (err) => {
+							if (err){
+								console.log("ERROR: can't lastRegisteredMessageId in DB")
+								reject(err)
+							}
+							else {
+								GLOBAL.con.query("INSERT INTO `SaveBotMessages`(`messageId`, `channelId`, `saveId`) VALUES ("+ GLOBAL.con.escape(msg.id) +", "+  GLOBAL.con.escape(msg.channelId) +", "+  GLOBAL.con.escape(msgSent.id) +")", (err) => {
+									if (err){
+										console.log("ERROR: can't insert new message into SaveBotChannels")
+										reject(err)
+									}
+									else
+										resolve("Success");
+								})
+							}
+						})
+					}).catch(reject)
+				}).catch(reject)
+			}
+		})
 	})
 }
 
