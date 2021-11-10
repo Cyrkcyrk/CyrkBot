@@ -8,7 +8,7 @@ GLOBAL.local = _local;
 let {channelTree} = require("./channelTree.js")
 let {messageDelete} = require("./messageDelete.js")
 let {messageSend} = require("./messageSend.js")
-let {archiveChannel, archiveMessage, getArchiveChannelId, fetchFirstMessageChannel} = require("./archiveChannel.js")
+let {archiveChannel, archiveMessage, getArchiveChannelId, fetchFirstMessageChannel, archiveMsgCreate, archiveMsgDelete, archiveMsgUpdate} = require("./archiveChannel.js")
 
 let archivedChannel = [
 	""
@@ -96,241 +96,16 @@ GLOBAL.bot.on('ready', () => {
 
 .on('raw', data => {
 	if(data.t && data.t == 'MESSAGE_DELETE') {
-		let localLog = (e) => {
-			console.log(e)
-		}
-		
-		GLOBAL.con.query("SELECT * FROM `SaveBotMessages` AS M JOIN `SaveBotChannels` AS C ON C.`originId` = M.`channelId` WHERE `messageId` = " + GLOBAL.con.escape(data.d.id) +";", 
-		(err, res, fields) => {
-			if (err) {
-				console.log(err)
-			}
-			else if (typeof(res[0]) != "undefined") {
-				res = res[0];
-				GLOBAL.bot.channels.fetch(res.destId).then(chan => {
-					chan.messages.fetch(res.saveId).then(msg => {
-						new Promise( (resolve) => {
-							if(msg.embeds.length == 0) {
-								resolve([])
-							}
-							else {
-								let i = 0;
-								let embedArray = []
-								msg.embeds.forEach(emb => {
-									i++;
-									embedArray.push(emb);
-									if (i == msg.embeds.length) {
-										resolve(embedArray)
-									}
-								})
-							}
-						})
-						.then(embedArray => {
-							let embed = embedArray[embedArray.length - 1]
-							
-							let mtn = new Date();
-							
-							if (embedArray.length == 0 || embed.fields.length == 24 || embed.fields.length == 0) {
-								embed = new MessageEmbed()
-								.setTimestamp(Date.now())
-								.setDescription("Embed n°" + embedArray.length)
-								.setFooter("last change")
-								embedArray.push(embed);
-							}
-							embed.setTimestamp(Date.now())
-								.setFooter("last change")
-								.setColor([255, 100, 100])
-								.addField("Supprimé à`"+ Date.now() +"` ("+ mtn +")", "---")
-							
-							msg.edit({
-								embeds : embedArray
-							}).catch(e => {
-								console.log("Couldn't edit message")
-								console.log(e)
-							})
-						})
-					})
-				})
-			} else {
-				console.log(res)
-				console.log("Message unknown in db")
-			}
-		});
+		archiveMsgDelete(GLOBAL, data.d.id);
 	}
 	else if(data.t && data.t == 'MESSAGE_UPDATE' && typeof(data.d.author) != "undefined" && data.d.author.id != GLOBAL.local.bot.BOTID) {
-		
-		let localLog = (e) => {
-			console.log(e)
-		}
-		
-		GLOBAL.con.query("SELECT * FROM `SaveBotMessages` AS M JOIN `SaveBotChannels` AS C ON C.`originId` = M.`channelId` WHERE `messageId` = " + GLOBAL.con.escape(data.d.id) +";", 
-		(err, res, fields) => {
-			if (err) {
-				console.log(err)
-			}
-			else if (typeof(res[0]) != "undefined") {
-				res = res[0];
-				GLOBAL.bot.channels.fetch(res.destId).then(chan => {
-					GLOBAL.bot.channels.fetch(res.originId).then(chanOrigin => {
-						chan.messages.fetch(res.saveId).then(msg => {
-							chanOrigin.messages.fetch(res.messageId).then(msgOrigin => {
-								
-								if(msgOrigin.author.bot) {
-									chanArchive.send(messageOptions)
-									msg.edit({
-										content: (msgOrigin.deleted ? "(deleted) " : "") + (msgOrigin.editedTimestamp ? "(edited) " : "") + "> BOT: "+ msgOrigin.author.username +", MessageId: `"+ msgOrigin.id +"` (updated on `"+ new Date() +"`)\n" + msgOrigin.content,
-										embeds : msg.embeds,
-										embeds : msgOrigin.embeds,
-										// attachments : msg.attachments,
-										stickers : msgOrigin.stickers,
-										files : msgOrigin.attachments
-									})
-								}
-								else {
-									new Promise( (resolve) => {
-										let i = 0;
-										let embedArray = []
-										msg.embeds.forEach(emb => {
-											i++;
-											embedArray.push(emb);
-											if (i == msg.embeds.length) {
-												resolve(embedArray)
-											}
-										})
-									})
-									.then(embedArray => {
-										let embed = embedArray[embedArray.length - 1]
-										
-										let mtn = new Date();
-										
-										if (embed.fields.length >= 23) {
-											embed = new MessageEmbed()
-											.setTimestamp(Date.now())
-											.setDescription("Embed n°" + embedArray.length)
-											.setFooter("last change")
-											embedArray.push(embed);
-										}
-										embed.setTimestamp(Date.now())
-											.setFooter("last change")
-											.setColor([100, 100, 255])
-											.addField("Edité à `"+ Date.now() +"` ("+ mtn +")", msgOrigin.content ? msgOrigin.content.substr(0, 1023) : "no content")
-										
-										if (msgOrigin.content.length > 1023)
-											embed.addField("Suite message:", msgOrigin.content.substr(1024))
-										
-										msg.edit({
-											embeds : embedArray
-										}).catch(e => {
-											console.log("Couldn't edit message")
-											console.log(e)
-										})
-									})
-								}
-							})
-						})
-					})
-				})
-			} else {
-				console.log(res)
-				console.log("Message unknown in db")
-			}
-		});
+		archiveMsgUpdate(GLOBAL, data.d.id);
 	}
 })
 .on('messageCreate', (message) =>{
 	
 	if (message.guildId === GLOBAL.local.bot.GUILDID || message.channelId === "908064471560380466") {
-		getArchiveChannelId(GLOBAL, message.channelId)
-		.then(channelId => {
-			GLOBAL.bot.channels.fetch(channelId).then(chanArchive => {
-				archiveMessage(GLOBAL, message, chanArchive).catch(console.log)
-			})
-			.catch(e => {
-				console.log("Error while fetching channel for log: ")
-				console.log(e)
-			})
-		}).catch(e => {
-			console.log(e)
-		})
-		
-		/*
-		GLOBAL.con.query("SELECT * FROM `SaveBotChannels` WHERE `originId` = " + GLOBAL.con.escape(message.channelId) +";", 
-		(err, res, fields) => {
-			if (err) {
-				console.log(err)
-				return;
-			}
-			if (typeof(res[0]) != "undefined")
-			{
-				localLog("Channel trouve")
-				archiveMessage(message, res[0].destId);
-			}
-			else {
-				localLog("Le channel n'existe pas")
-				GLOBAL.bot.channels.fetch(message.channelId).then(channel => {
-					localLog("On fetch le channel d'origine")
-					GLOBAL.bot.guilds.fetch(GLOBAL.local.bot.GUILDSAVEID).then(guildSave => {
-						localLog("On fetch la guild de save")
-						new Promise((resolve) => {
-							if (channel.parentId == null) {
-								localLog("Pas de parent")
-								resolve(null)
-							}
-							else {
-								GLOBAL.con.query("SELECT * FROM `SaveBotChannels` WHERE `originId` = " + GLOBAL.con.escape(channel.parentId) +";", 
-								(err, res, fields) => {
-									if (err)
-										console.log(err)
-									else if (typeof(res[0]) == "undefined") {
-										localLog("Parent pas dans la BDD")
-										GLOBAL.bot.channels.fetch(channel.parentId).then(channelParentOrigin => {
-											localLog("On fetch le parent")
-											guildSave.channels.create(channelParentOrigin.name, {
-												type : channelParentOrigin.type, 
-												position : channelParentOrigin.rawPosition, 
-												topic: channelParentOrigin.topic
-											})
-											.then(chanParentDest => {
-												localLog("On creer le parent")
-												GLOBAL.con.query("INSERT INTO `SaveBotChannels`(`originId`, `destId`) VALUES ("+ GLOBAL.con.escape(channelParentOrigin.id) +", "+  GLOBAL.con.escape(chanParentDest.id) +")", (err) => {
-													localLog("On insert le parent dans la BDD")
-													if (err)
-														console.log(err)
-													else
-														resolve(chanParentDest.id)
-												})
-											})
-										})
-									}
-									else {
-										localLog("Parent EST dans la bdd, on resolve")
-										resolve(res[0].destId)
-									}
-								});
-							}
-						})
-						.then(chanParentDestId => {
-							guildSave.channels.create(channel.name, {
-								type : channel.type,
-								topic : channel.topic,
-								parent : chanParentDestId,
-								position : channel.rawPosition
-							}).then(chan => {
-								
-								GLOBAL.con.query("INSERT INTO `SaveBotChannels`(`originId`, `destId`) VALUES ("+ GLOBAL.con.escape(channel.id) +", "+  GLOBAL.con.escape(chan.id) +")", (err) => {
-									if (err)
-										console.log(err)
-									else {
-										archiveMessage(message, chan.id);
-									}
-								})
-							})
-						});
-					})
-				})
-			}
-		})
-		*/
+		archiveMsgCreate(GLOBAL, message)
 	}
 	
 	if (message.guildId === GLOBAL.local.bot.GUILDSAVEID && message.author.id != GLOBAL.local.bot.BOTID) {
@@ -394,7 +169,6 @@ GLOBAL.bot.on('ready', () => {
 		const args = message.content.trim().split(/ +/g);
 		const command = args.shift().toLowerCase().slice(GLOBAL.local.prefix.length);;
 		
-		// console.log(command);
 		switch (command) {
 			case 'ping': {
 				message.reply("Pong !");
@@ -414,9 +188,6 @@ GLOBAL.bot.on('ready', () => {
 					messageDelete(GLOBAL, message)
 					.then(res => {
 						console.log(res)
-						// message.delete().catch(e => {
-							// print("Couldn't delete ordering message")
-						// });
 					})
 					.catch(console.log)
 				}

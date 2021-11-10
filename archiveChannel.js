@@ -424,7 +424,169 @@ let fetchFirstMessageChannel = (GLOBAL, channelId) => {
 }
 
 
+let archiveMsgCreate = (GLOBAL, message) => {
+	getArchiveChannelId(GLOBAL, message.channelId)
+	.then(channelId => {
+		GLOBAL.bot.channels.fetch(channelId).then(chanArchive => {
+			archiveMessage(GLOBAL, message, chanArchive).catch(console.log)
+		})
+		.catch(e => {
+			console.log("Error while fetching channel for log: ")
+			console.log(e)
+		})
+	}).catch(e => {
+		console.log(e)
+	})
+}
+
+let archiveMsgDelete = (GLOBAL, paramMessageId) => {
+	let localLog = (e) => {
+		console.log(e)
+	}
+	
+	GLOBAL.con.query("SELECT * FROM `SaveBotMessages` AS M JOIN `SaveBotChannels` AS C ON C.`originId` = M.`channelId` WHERE `messageId` = " + GLOBAL.con.escape(paramMessageId) +";", 
+	(err, res, fields) => {
+		if (err) {
+			console.log(err)
+		}
+		else if (typeof(res[0]) != "undefined") {
+			res = res[0];
+			GLOBAL.bot.channels.fetch(res.destId).then(chan => {
+				chan.messages.fetch(res.saveId).then(msg => {
+					new Promise( (resolve) => {
+						if(msg.embeds.length == 0) {
+							resolve([])
+						}
+						else {
+							let i = 0;
+							let embedArray = []
+							msg.embeds.forEach(emb => {
+								i++;
+								embedArray.push(emb);
+								if (i == msg.embeds.length) {
+									resolve(embedArray)
+								}
+							})
+						}
+					})
+					.then(embedArray => {
+						let embed = embedArray[embedArray.length - 1]
+						
+						let mtn = new Date();
+						
+						if (embedArray.length == 0 || embed.fields.length == 24 || embed.fields.length == 0) {
+							embed = new MessageEmbed()
+							.setTimestamp(Date.now())
+							.setDescription("Embed n°" + embedArray.length)
+							.setFooter("last change")
+							embedArray.push(embed);
+						}
+						embed.setTimestamp(Date.now())
+							.setFooter("last change")
+							.setColor([255, 100, 100])
+							.addField("Supprimé à`"+ Date.now() +"` ("+ mtn +")", "---")
+						
+						msg.edit({
+							embeds : embedArray
+						}).catch(e => {
+							console.log("Couldn't edit message")
+							console.log(e)
+						})
+					})
+				})
+			})
+		} else {
+			console.log(res)
+			console.log("Message unknown in db")
+		}
+	});
+}
+
+let archiveMsgUpdate = (GLOBAL, paramMessageId) => {
+			
+	let localLog = (e) => {
+		console.log(e)
+	}
+	
+	GLOBAL.con.query("SELECT * FROM `SaveBotMessages` AS M JOIN `SaveBotChannels` AS C ON C.`originId` = M.`channelId` WHERE `messageId` = " + GLOBAL.con.escape(paramMessageId) +";", 
+	(err, res, fields) => {
+		if (err) {
+			console.log(err)
+		}
+		else if (typeof(res[0]) != "undefined") {
+			res = res[0];
+			GLOBAL.bot.channels.fetch(res.destId).then(chan => {
+				GLOBAL.bot.channels.fetch(res.originId).then(chanOrigin => {
+					chan.messages.fetch(res.saveId).then(msg => {
+						chanOrigin.messages.fetch(res.messageId).then(msgOrigin => {
+							
+							if(msgOrigin.author.bot) {
+								chanArchive.send(messageOptions)
+								msg.edit({
+									content: (msgOrigin.deleted ? "(deleted) " : "") + (msgOrigin.editedTimestamp ? "(edited) " : "") + "> BOT: "+ msgOrigin.author.username +", MessageId: `"+ msgOrigin.id +"` (updated on `"+ new Date() +"`)\n" + msgOrigin.content,
+									embeds : msg.embeds,
+									embeds : msgOrigin.embeds,
+									// attachments : msg.attachments,
+									stickers : msgOrigin.stickers,
+									files : msgOrigin.attachments
+								})
+							}
+							else {
+								new Promise( (resolve) => {
+									let i = 0;
+									let embedArray = []
+									msg.embeds.forEach(emb => {
+										i++;
+										embedArray.push(emb);
+										if (i == msg.embeds.length) {
+											resolve(embedArray)
+										}
+									})
+								})
+								.then(embedArray => {
+									let embed = embedArray[embedArray.length - 1]
+									
+									let mtn = new Date();
+									
+									if (embed.fields.length >= 23) {
+										embed = new MessageEmbed()
+										.setTimestamp(Date.now())
+										.setDescription("Embed n°" + embedArray.length)
+										.setFooter("last change")
+										embedArray.push(embed);
+									}
+									embed.setTimestamp(Date.now())
+										.setFooter("last change")
+										.setColor([100, 100, 255])
+										.addField("Edité à `"+ Date.now() +"` ("+ mtn +")", msgOrigin.content ? msgOrigin.content.substr(0, 1023) : "no content")
+									
+									if (msgOrigin.content.length > 1023)
+										embed.addField("Suite message:", msgOrigin.content.substr(1024))
+									
+									msg.edit({
+										embeds : embedArray
+									}).catch(e => {
+										console.log("Couldn't edit message")
+										console.log(e)
+									})
+								})
+							}
+						})
+					})
+				})
+			})
+		} else {
+			console.log(res)
+			console.log("Message unknown in db")
+		}
+	});
+}
+
 exports.archiveChannel = archiveChannel;
 exports.archiveMessage = archiveMessage;
 exports.getArchiveChannelId = getArchiveChannelId;
 exports.fetchFirstMessageChannel = fetchFirstMessageChannel;
+
+exports.archiveMsgCreate = archiveMsgCreate;
+exports.archiveMsgDelete = archiveMsgDelete;
+exports.archiveMsgUpdate = archiveMsgUpdate;
