@@ -498,7 +498,7 @@ let archiveMessage = (GLOBAL, msg, chanArchive) => {
 				resolve(null)
 			}
 			else {
-				GLOBAL.con.query("SELECT * FROM `SaveBotMessages` WHERE `messageId` = "+ GLOBAL.con.escape(msg.id) +";", (err, res, fields => {
+				GLOBAL.con.query("SELECT * FROM `SaveBotMessages` WHERE `messageId` = "+ GLOBAL.con.escape(msg.id) +";", (err, res, fields) => {
 					if (err || typeof(res[0]) == "undefined") {
 						resolve(null)
 					}
