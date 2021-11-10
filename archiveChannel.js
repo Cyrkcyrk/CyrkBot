@@ -2,7 +2,7 @@ const {MessageEmbed} = require('discord.js');
 
 let archiveChannel = (GLOBAL, paramChanID) => {
 	let localLog = (m) => {
-		// console.log(m)
+		console.log(m)
 	}
 	
 	let limit = 90;
@@ -14,7 +14,7 @@ let archiveChannel = (GLOBAL, paramChanID) => {
 			}).then(msgs => {
 				return new Promise((resolve, reject) => {
 					let iterate = (id) => {
-						console.log(id);
+						localLog(id);
 						archiveMessage(GLOBAL, msgs.at(id), chanArchive)
 						.then(_ => {
 							if (id == 1)
@@ -31,8 +31,12 @@ let archiveChannel = (GLOBAL, paramChanID) => {
 						})
 					}
 					if (msgs.size == 0) {
-						console.log("No message in channel")
+						localLog("No message in channel")
 						resolve()
+					}
+					else if (msgs.size == 1) {
+						localLog("Only 1 message fetched")
+						resolve();
 					}
 					else
 						iterate(msgs.size - 1);

@@ -8,7 +8,8 @@ GLOBAL.local = _local;
 let {channelTree} = require("./channelTree.js")
 let {messageDelete} = require("./messageDelete.js")
 let {messageSend} = require("./messageSend.js")
-let {archiveChannel, archiveMessage, getArchiveChannelId, fetchFirstMessageChannel, archiveMsgCreate, archiveMsgDelete, archiveMsgUpdate} = require("./archiveChannel.js")
+let {archiveChannel, fetchFirstMessageChannel} = require("./archiveChannel.js")
+let {archiveMsgCreate, archiveMsgDelete, archiveMsgUpdate} = require("./archiveChannel.js")
 
 let archivedChannel = [
 	""
@@ -277,16 +278,15 @@ GLOBAL.bot.on('ready', () => {
 			case 'archive' : {
 				if (message.author.id == "292808250779369482") {
 					let boucle = (iterateur) => {
-						// console.log(iterateur, args[iterateur])
 						archiveChannel(GLOBAL, args[iterateur])
 						.then(_ => {
 							console.log("Archive over")
-							if (iterateur < args.length)
+							if (iterateur < args.length -1)
 								boucle(iterateur+1)
 						}).catch(e => {
 							console.log("Archive failure")
 							console.log(e)
-							if (iterateur < args.length)
+							if (iterateur < args.length-1)
 								boucle(iterateur+1)
 						})
 					}
