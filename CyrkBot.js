@@ -4,6 +4,7 @@ const util = require('util')
 
 let GLOBAL = {}
 GLOBAL.local = _local;
+GLOBAL.guilds = {}
 
 let {channelTree} = require("./channelTree.js")
 let {messageDelete} = require("./messageDelete.js")
@@ -15,6 +16,17 @@ let archivedChannel = [
 	""
 	,""
 ]
+
+GLOBAL.bot = new Client({intents : [
+	Intents.FLAGS.GUILDS, 
+	Intents.FLAGS.GUILD_MEMBERS,
+	Intents.FLAGS.GUILD_EMOJIS_AND_STICKERS,
+	Intents.FLAGS.GUILD_MESSAGES,
+	Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
+	Intents.FLAGS.DIRECT_MESSAGES,
+	Intents.FLAGS.DIRECT_MESSAGE_REACTIONS  
+],  partials: ["CHANNEL"]});
+
 
 var mysql = require('mysql');
 GLOBAL.con = mysql.createConnection({
@@ -28,7 +40,20 @@ try{
 	GLOBAL.con.connect(function(err) {
 		if (err) throw err;
 		console.log("Connected to database");
-		return 1;
+		
+		GLOBAL.con.query("SELECT * FROM `SaveBotServers`", (err, res, fields) => {
+			if (err)
+				throw (err);
+			else {
+				res.forEach(srv => {
+					GLOBAL.guilds[srv["originId"]] = srv["destId"];
+					console.log(Object.keys(GLOBAL.guilds).length, res.length)
+					console.log(srv)
+					if (Object.keys(GLOBAL.guilds).length == res.length)
+						GLOBAL.bot.login(GLOBAL.local.bot.TOKEN)
+				})
+			}
+		})
 	});
 }
 catch(err){
@@ -36,63 +61,62 @@ catch(err){
 	return 0;
 }
 
-GLOBAL.bot = new Client({intents : [
-	Intents.FLAGS.GUILDS, 
-	Intents.FLAGS.GUILD_MEMBERS,
-	Intents.FLAGS.GUILD_EMOJIS_AND_STICKERS,
-	Intents.FLAGS.GUILD_MESSAGES,
-	Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
-	Intents.FLAGS.DIRECT_MESSAGES,
-	Intents.FLAGS.DIRECT_MESSAGE_REACTIONS  
-],  partials: ["CHANNEL"]});
-
-GLOBAL.bot.login(GLOBAL.local.bot.TOKEN)
 
 GLOBAL.bot.on('ready', () => {
 	console.log("Bot connecté");
-	
-	GLOBAL.bot.guilds.fetch(GLOBAL.local.bot.GUILDID)
-	.then(_guild => {
-		GLOBAL.guild = _guild;
-		
-		_guild.members.fetch("292808250779369482")
-		.then(_cyrk => {
-			_guild.members.fetch(GLOBAL.bot.user.id)
-			.then(_bot => {
-				_bot.setNickname(_cyrk.nickname);
-			})
-		})
-		
-		// channelTree(GLOBAL, _guild).then(arr => {
-			// console.log("Tree done")
-			// console.log(typeof(arr))
-			// Object.keys(arr).forEach(cat => {
-				// arr[cat].subChan.forEach(chan => {
-					// if (chan.type == 'GUILD_TEXT')
-						// console.log(chan.id)
+	Object.keys(GLOBAL.guilds).forEach(GuildId => {
+		console.log(GuildId)
+		GLOBAL.bot.guilds.fetch(GuildId)
+		.then(_guild => {
+			GLOBAL.guild = _guild;
+			try {
+				_guild.members.fetch("292808250779369482")
+				.then(_cyrk => {
+					_guild.members.fetch(GLOBAL.bot.user.id)
+					.then(_bot => {
+						_bot.setNickname(_cyrk.nickname);
+					})
+				})
+			}catch (err) {
+				console.log("ERROR while fetching / renaming Cyrk or bot")
+				console.log(err)
+			}
+			
+			if (GuildId === "767688244010680330") {
+				console.log("CHANEL TREE")
+				channelTree(GLOBAL, _guild).then(arr => {
+					console.log("Tree done")
+					console.log(arr)
+					console.log(typeof(arr))
+					Object.keys(arr).forEach(cat => {
+						arr[cat].subChan.forEach(chan => {
+							if (chan.type == 'GUILD_TEXT')
+								console.log(chan.id + " - " + chan.name)
+						})
+					})
+					console.log(util.inspect(arr, {showHidden: false, depth: null, colors: true}))
+				})
+			}
+			
+			
+			// _guild.fetchAuditLogs()
+			// .then(audit => {
+				// audit.entries.forEach(entry => {
+					// if (entry.action == 'MEMBER_ROLE_UPDATE' && entry.target.id == GLOBAL.local.bot.BOTID)
+						// console.log(entry);
 				// })
 			// })
-			// console.log(util.inspect(arr, {showHidden: false, depth: null, colors: true}))
+			// .catch(console.error);
+			
+			
+		});
+		
+		// functions.init(GLOBAL);
+		// GLOBAL.bot.user.setActivity({
+			// name: "you",
+			// type: "WATCHING"
 		// })
-		
-		
-		// _guild.fetchAuditLogs()
-		// .then(audit => {
-			// audit.entries.forEach(entry => {
-				// if (entry.action == 'MEMBER_ROLE_UPDATE' && entry.target.id == GLOBAL.local.bot.BOTID)
-					// console.log(entry);
-			// })
-		// })
-		// .catch(console.error);
-		
-		
-	});
-	
-	// functions.init(GLOBAL);
-	// GLOBAL.bot.user.setActivity({
-		// name: "you",
-		// type: "WATCHING"
-	// })
+	})
 })
 
 .on('raw', data => {
@@ -105,11 +129,13 @@ GLOBAL.bot.on('ready', () => {
 })
 .on('messageCreate', (message) =>{
 	
-	if (message.guildId === GLOBAL.local.bot.GUILDID || message.channelId === "908064471560380466") {
+	// if (message.guildId === GLOBAL.local.bot.GUILDID || message.channelId === "908064471560380466") {
+	if(Object.keys(GLOBAL.guilds).indexOf(message.guildId) > -1) {
 		archiveMsgCreate(GLOBAL, message)
 	}
 	
-	if (message.guildId === GLOBAL.local.bot.GUILDSAVEID && message.author.id != GLOBAL.local.bot.BOTID) {
+	// if (message.guildId === GLOBAL.local.bot.GUILDSAVEID && message.author.id != GLOBAL.local.bot.BOTID) {
+	if(Object.values(GLOBAL.guilds).indexOf(message.guildId) > -1 && message.author.id != GLOBAL.local.bot.BOTID) {
 		GLOBAL.con.query("SELECT * FROM `SaveBotChannels` WHERE `destId`="+ GLOBAL.con.escape(message.channelId) +";", (err, res, fields) => {
 			if (err) {
 				console.log(err)

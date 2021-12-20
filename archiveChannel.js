@@ -161,7 +161,7 @@ let archiveMessage = (GLOBAL, msg, chanArchive) => {
 					content: (msg.deleted ? "(deleted) " : "") + (msg.editedTimestamp ? "(edited) " : "") + "> BOT: "+ msg.author.username +", MessageId: `"+ msg.id +"`\n" + msg.content,
 					embeds : msg.embeds,
 					// attachments : msg.attachments,
-					stickers : msg.stickers,
+					// stickers : msg.stickers,
 					files : msg.attachments
 				}
 				
@@ -210,7 +210,7 @@ let archiveMessage = (GLOBAL, msg, chanArchive) => {
 					let messageOptions = {
 						embeds : [embed],
 						// attachments : msg.attachments,
-						stickers : msg.stickers,
+						// stickers : msg.stickers,
 						files : msg.attachments
 					}
 					
@@ -271,7 +271,8 @@ let getArchiveChannelId = (GLOBAL, channelId) => {
 				localLog("Le channel n'existe pas")
 				GLOBAL.bot.channels.fetch(channelId).then(channel => {
 					localLog("On fetch le channel d'origine")
-					GLOBAL.bot.guilds.fetch(GLOBAL.local.bot.GUILDSAVEID).then(guildSave => {
+					// GLOBAL.bot.guilds.fetch(GLOBAL.local.bot.GUILDSAVEID).then(guildSave => {
+					GLOBAL.bot.guilds.fetch(GLOBAL.guilds[channel.guildId]).then(guildSave => {
 						localLog("On fetch la guild de save")
 						new Promise((resolve, reject) => {
 							if (channel.parentId == null) {
@@ -348,7 +349,7 @@ let getArchiveChannelId = (GLOBAL, channelId) => {
 						reject1(e)
 					})
 				}).catch(e => {
-					console.log("Can't fetch guild save: " + GLOBAL.local.bot.GUILDSAVEID)
+					console.log("Can't fetch guild save: " + GLOBAL.guilds[channel.guildId] + " from the origin guild " + channel.guildId);
 					reject1(e)
 				})
 			}

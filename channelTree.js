@@ -35,8 +35,7 @@ exports.channelTree = (GLOBAL, guild) => {
 				chanArray.push(chanObj)
 			}
 			
-			// if (itemsProcessed === Object.keys(guild.channels.cache).length) {
-			if (itemsProcessed === 122) {
+			if (itemsProcessed >= guild.channels.cache.size) {
 				itemsProcessed = 0;
 				chanArray.forEach(chan => {
 					itemsProcessed++;
