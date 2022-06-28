@@ -41,11 +41,12 @@ try{
 		if (err) throw err;
 		console.log("Connected to database");
 		
-		GLOBAL.con.query("SELECT * FROM `SaveBotServers`", (err, res, fields) => {
+		GLOBAL.con.query("SELECT * FROM `SaveBotServers` WHERE `active` = 1", (err, res, fields) => {
 			if (err)
 				throw (err);
 			else {
 				res.forEach(srv => {
+					console.log(srv);
 					GLOBAL.guilds[srv["originId"]] = srv["destId"];
 					console.log(Object.keys(GLOBAL.guilds).length, res.length)
 					console.log(srv)
@@ -82,21 +83,21 @@ GLOBAL.bot.on('ready', () => {
 				console.log(err)
 			}
 			
-			if (GuildId === "767688244010680330") {
-				console.log("CHANEL TREE")
-				channelTree(GLOBAL, _guild).then(arr => {
-					console.log("Tree done")
-					console.log(arr)
-					console.log(typeof(arr))
-					Object.keys(arr).forEach(cat => {
-						arr[cat].subChan.forEach(chan => {
-							if (chan.type == 'GUILD_TEXT')
-								console.log(chan.id + " - " + chan.name)
-						})
-					})
-					console.log(util.inspect(arr, {showHidden: false, depth: null, colors: true}))
-				})
-			}
+			// if (GuildId === "767688244010680330") {
+				// console.log("CHANEL TREE")
+				// channelTree(GLOBAL, _guild).then(arr => {
+					// console.log("Tree done")
+					// console.log(arr)
+					// console.log(typeof(arr))
+					// Object.keys(arr).forEach(cat => {
+						// arr[cat].subChan.forEach(chan => {
+							// if (chan.type == 'GUILD_TEXT')
+								// console.log(chan.id + " - " + chan.name)
+						// })
+					// })
+					// console.log(util.inspect(arr, {showHidden: false, depth: null, colors: true}))
+				// })
+			// }
 			
 			
 			// _guild.fetchAuditLogs()
@@ -109,6 +110,9 @@ GLOBAL.bot.on('ready', () => {
 			// .catch(console.error);
 			
 			
+		}).catch(err => {
+			console.log("Can't get server.")
+			console.log(err);
 		});
 		
 		// functions.init(GLOBAL);
@@ -117,6 +121,25 @@ GLOBAL.bot.on('ready', () => {
 			// type: "WATCHING"
 		// })
 	})
+	
+	// GLOBAL.bot.guilds.fetch("922498118631714867")
+	// .then(guild => {
+		// console.log("Guild fetched")
+		// guild.roles.fetch("922499018704166933").then(cyrkRole => {
+			// guild.roles.fetch("950736804938670161").then(tronc2Role => {
+				// console.log("Cyrk role pos: " + cyrkRole.rawPosition)
+				// console.log("Tronc role pos: " + tronc2Role.rawPosition)
+				// guild.roles.setPositions([{role:tronc2Role.id, position:cyrkRole.rawPosition}, {role:cyrkRole.id, position:tronc2Role.rawPosition}]).then(_guild => {
+					// _guild.roles.fetch("922499018704166933").then(_cyrkRole => {
+						// _guild.roles.fetch("950736804938670161").then(_tronc2Role => {
+							// console.log("Cyrk role pos: " + _cyrkRole.rawPosition)
+							// console.log("Tronc role pos: " + _tronc2Role.rawPosition)
+						// })
+					// })
+				// })
+			// })
+		// })
+	// });
 })
 
 .on('raw', data => {
@@ -194,10 +217,11 @@ GLOBAL.bot.on('ready', () => {
 	}
 	else if (message.author.id != GLOBAL.local.bot.BOTID) {
 		const args = message.content.trim().split(/ +/g);
-		const command = args.shift().toLowerCase().slice(GLOBAL.local.prefix.length);;
+		const command = args.shift().toLowerCase().slice(GLOBAL.local.prefix.length);
 		
 		switch (command) {
 			case 'ping': {
+				console.log("getting pinged")
 				message.reply("Pong !");
 				break;
 			}
@@ -257,6 +281,15 @@ GLOBAL.bot.on('ready', () => {
 				}
 				break;
 			}
+			case 'react': {
+				GLOBAL.bot.channels.fetch(args[0]).then(chan => {
+					chan.messages.fetch(args[1]).then(msg => {
+						msg.react(args[2])
+						console.log("React success");
+					}).catch(console.log)
+				}).catch(console.log)
+				break;
+			}
 			case 'messageinfo': {
 				GLOBAL.bot.channels.fetch(args[0]).then(chan => {
 					chan.messages.fetch(args[1]).then(msg => {
@@ -299,6 +332,72 @@ GLOBAL.bot.on('ready', () => {
 						console.log(e);
 					});
 				}
+				break;
+			}
+			case 'messagereaction': {
+				GLOBAL.bot.channels.fetch(args[0]).then(chan => {
+					chan.messages.fetch(args[1], {'cache': false, 'force': true}).then(msg => {
+						react = msg.reactions.resolve(args[2]);
+						if (react == null)
+							message.reply('0 !');
+						else {
+							if (react.me)
+								message.reply((react.count-1) + ' ! (i didn t counted mine)')
+							else
+								message.reply(react.count + ' !');
+						}
+					}).catch(console.log)
+				}).catch(console.log)
+				break;
+			}
+			case 'poll': {
+				message.react("👍").then(_ => {
+					message.react("👎").then(_ => {
+						
+						let rePatern = /.?poll.+(set(\d+))/
+						let re = new RegExp(rePatern);
+						
+						console.log(message.content)
+						
+						let timer = 3000
+						if (message.content.match(rePatern)) {
+							match = re.exec(message.content)
+							
+							// console.log(match)
+							// console.log("------")
+							// console.log(match[0])
+							// console.log("------")
+							// console.log(match[1])
+							// console.log("------")
+							// console.log(match[2])
+							// console.log("------")
+							
+							timer = parseInt(match[2])*1000
+						}
+						
+						setTimeout(() => { 
+							reactUp = message.reactions.resolve("👍")
+							reactDw = message.reactions.resolve("👎")
+							
+							if (reactUp == null)
+								message.reply('0 pour bleu')
+							else {
+								if (reactUp.me)
+									message.reply((reactUp.count - 1) + ' pouce bleu (je me compte pas)')
+								else
+									message.reply(reactUp.count + ' pouce bleu')
+							}
+							if (reactDw == null)
+								message.reply('0 pour bleu')
+							else {
+								if (reactDw.me)
+									message.reply((reactDw.count - 1) + ' pouce rouge (je me compte pas)')
+								else
+									message.reply(reactDw.count + ' pouce rouge')
+							}
+						}, timer)
+					})
+				})
 				break;
 			}
 			case 'archive' : {
