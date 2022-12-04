@@ -1,0 +1,10 @@
+version: "3.8"
+
+services:
+  cyrkbot:
+    image: cyrkbot
+    container_name: cyrkbot
+    network_mode: "host"
+    volumes:
+      - /home/Cyrille/CyrkBot:/app/code
+    restart: unless-stopped # Indique que le conteneur doit toujours etre redemarre automatiquement sauf s'il est stoppe volontairement
