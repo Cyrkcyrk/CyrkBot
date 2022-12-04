@@ -1,10 +1,14 @@
 const _local = require('./local.js');
 const {Client, Intents, MessageEmbed} = require('discord.js');
+const discordjs = require("discord.js");
 const util = require('util')
+
+console.log(discordjs.version)
 
 let GLOBAL = {}
 GLOBAL.local = _local;
 GLOBAL.guilds = {}
+GLOBAL.guildsRoulette = {}
 
 let {channelTree} = require("./channelTree.js")
 let {messageDelete} = require("./messageDelete.js")
@@ -48,6 +52,7 @@ try{
 				res.forEach(srv => {
 					console.log(srv);
 					GLOBAL.guilds[srv["originId"]] = srv["destId"];
+					GLOBAL.guildsRoulette[srv["originId"]] = srv["roulette"];
 					console.log(Object.keys(GLOBAL.guilds).length, res.length)
 					console.log(srv)
 					if (Object.keys(GLOBAL.guilds).length == res.length)
@@ -231,6 +236,13 @@ GLOBAL.bot.on('ready', () => {
 					message.reply("Restarting Bot").then(_ => {
 						process.exit();
 					})
+				}
+				break;
+			}
+			case 'timeout': {
+				if (message.author.id == "292808250779369482")
+				{
+					message.member.timeout(3000);
 				}
 				break;
 			}
@@ -418,6 +430,42 @@ GLOBAL.bot.on('ready', () => {
 					boucle(0);
 				}
 				break;
+			}
+			
+			case 'roulette': {
+				if (message.guildId == "1013893623902900366" || message.guildId == "1044728540895125504") {
+					
+					let guildId = message.guildId;
+					if (Object.values(GLOBAL.guilds).indexOf(message.guildId) > -1)
+						guildId = Object.keys(GLOBAL.guilds)[Object.values(GLOBAL.guilds).indexOf(message.guildId)]
+					console.log("Roulette count: " + GLOBAL.guildsRoulette[guildId]);
+					if (GLOBAL.guildsRoulette[guildId] == 0) {
+						GLOBAL.guildsRoulette[guildId] = Math.floor(Math.random() * 6);
+						
+						GLOBAL.con.query("UPDATE `SaveBotServers` SET `roulette`= "+ GLOBAL.guildsRoulette[guildId] +" \
+						  WHERE `originId` = '"+ guildId +"';", 
+						(err, res, fields) => {
+							if (err)
+								throw (err);
+						})
+						message.reply("**BANG !**");
+                        
+                        let timeoutDuration = Math.floor(Math.random() * 270) + 30
+						message.member.timeout(timeoutDuration * 1000);
+					}
+					else {
+						GLOBAL.guildsRoulette[guildId] -= 1;
+						GLOBAL.con.query("UPDATE `SaveBotServers` SET `roulette`= `roulette`-1 \
+						  WHERE `originId` = '"+ guildId +"';", 
+						(err, res, fields) => {
+							if (err)
+								throw (err);
+						})
+						message.reply("click")
+					}
+					
+					console.log(GLOBAL.guildsRoulette)
+				}
 			}
 		}
 	}
